@@ -52,36 +52,6 @@ const getCalendarLegendMarkup = () => `
     <span><span class="calendar-swatch closed"></span>Unavailable</span>
   </div>`;
 
-const setFormStatus = (form, message, type) => {
-  if (window.RYD_setFormStatus) {
-    window.RYD_setFormStatus(form, message, type);
-    return;
-  }
-
-  const status = form.querySelector("[data-form-status]");
-  if (!status) {
-    alert(message);
-    return;
-  }
-
-  status.textContent = message;
-  status.className = `form-status is-visible is-${type}`;
-};
-
-const clearFormStatus = (form) => {
-  if (window.RYD_clearFormStatus) {
-    window.RYD_clearFormStatus(form);
-    return;
-  }
-
-  const status = form.querySelector("[data-form-status]");
-  if (!status) {
-    return;
-  }
-
-  status.textContent = "";
-  status.className = "form-status";
-};
 
 const isSelectableDate = (car, iso) => {
   if (!car) {
@@ -255,7 +225,7 @@ const renderBookingCalendar = (car, form) => {
       const currentStart = form.pickupDate.value;
       const currentEnd = form.returnDate.value;
 
-      clearFormStatus(form);
+      window.RYD_clearFormStatus?.(form);
 
       if (!currentStart || currentEnd) {
         setSelectedDates(form, chosenDate, "");
@@ -275,7 +245,7 @@ const renderBookingCalendar = (car, form) => {
         setSelectedDates(form, chosenDate, "");
         renderBookingCalendar(car, form);
         updateSummary(form);
-        setFormStatus(form, "That date range crosses unavailable days. Select a new pickup date and try again.", "error");
+        window.RYD_setFormStatus?.(form, "That date range crosses unavailable days. Select a new pickup date and try again.", "error");
         return;
       }
 
@@ -435,7 +405,7 @@ const initBookingForm = () => {
   renderBookingCalendar(getCarById(form.car.value), form);
 
   form.addEventListener("change", (event) => {
-    clearFormStatus(form);
+    window.RYD_clearFormStatus?.(form);
 
     if (event.target === form.car) {
       const detailRoot = document.querySelector("[data-car-detail]");
@@ -462,16 +432,16 @@ const initBookingForm = () => {
     const age = form.querySelector('input[name="ageConfirm"]');
 
     if (!car || !isRangeAvailable(car, pickup, returnDate)) {
-      setFormStatus(form, "Select an available pickup and return date directly from the calendar before continuing.", "error");
+      window.RYD_setFormStatus?.(form, "Select an available pickup and return date directly from the calendar before continuing.", "error");
       return;
     }
 
     if (!consent.checked || !age.checked) {
-      setFormStatus(form, "Please confirm the required driver eligibility and booking disclosures before submitting your request.", "error");
+      window.RYD_setFormStatus?.(form, "Please confirm the required driver eligibility and booking disclosures before submitting your request.", "error");
       return;
     }
 
-    setFormStatus(
+    window.RYD_setFormStatus?.(
       form,
       `${car.name} has been prepared for ${formatDateLabel(pickup)} to ${formatDateLabel(returnDate)}. A concierge specialist will follow up to confirm coverage, delivery, and deposit authorization.`,
       "success"
@@ -486,3 +456,5 @@ document.addEventListener("DOMContentLoaded", () => {
   populateDetailPage();
   initBookingForm();
 });
+
+console.log("RYD_CARS:", window.RYD_CARS);
