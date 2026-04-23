@@ -35,6 +35,29 @@ const setActiveNav = () => {
   });
 };
 
+const setFormStatus = (form, message, type) => {
+  const status = form?.querySelector("[data-form-status]");
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.className = `form-status is-visible is-${type}`;
+};
+
+const clearFormStatus = (form) => {
+  const status = form?.querySelector("[data-form-status]");
+  if (!status) {
+    return;
+  }
+
+  status.textContent = "";
+  status.className = "form-status";
+};
+
+window.RYD_setFormStatus = setFormStatus;
+window.RYD_clearFormStatus = clearFormStatus;
+
 const initNavbar = () => {
   const navWrap = document.querySelector(".nav-wrap");
   const navLinks = navWrap?.querySelector(".nav-links");
@@ -135,8 +158,28 @@ const initNavbar = () => {
   syncMenuState();
 };
 
+const initContactForm = () => {
+  const form = document.querySelector("[data-contact-form]");
+  if (!form) {
+    return;
+  }
+
+  form.addEventListener("input", () => clearFormStatus(form));
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    setFormStatus(
+      form,
+      "Your inquiry has been received. A concierge specialist will reply shortly to confirm vehicle options, timing, and delivery details.",
+      "success"
+    );
+    form.reset();
+  });
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   initReveal();
   initNavbar();
+  initContactForm();
   setActiveNav();
 });

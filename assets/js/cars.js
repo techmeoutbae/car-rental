@@ -1,8 +1,8 @@
 window.RYD_CARS = [
   {
-    id: "ferrari-sf90",
-    name: "Ferrari SF90 Stradale",
-    tag: "Hybrid Hypercar",
+    id: "car-1",
+    name: "Car 1",
+    tag: "Signature Coupe",
     pricePerDay: 3490,
     deposit: 5000,
     insurancePerDay: 240,
@@ -10,23 +10,23 @@ window.RYD_CARS = [
     horsepower: 986,
     transmission: "8-speed dual-clutch",
     topSpeed: "211 mph",
-    accent: "Track-calibrated prestige",
+    accent: "Statement arrival",
     image:
       "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1400&q=80",
     description:
-      "The SF90 blends Formula 1-inspired hybrid performance with unmistakable Italian theater for guests who want the sharpest arrival in the city.",
+      "A signature performance coupe curated for milestone dinners, city arrivals, and polished weekend reservations.",
     features: [
-      "Launch control and magnetic suspension",
-      "Personal concierge delivery and briefing",
-      "Carbon fiber package and premium telemetry",
-      "VIP pickup photography experience"
+      "Performance-tuned driving setup",
+      "Personal concierge delivery and handover briefing",
+      "Premium detailing before each reservation",
+      "Ideal for executive arrivals and evening events"
     ],
     unavailableDates: ["2026-04-18", "2026-04-19", "2026-04-25", "2026-04-26"]
   },
   {
-    id: "lamborghini-revuelto",
-    name: "Lamborghini Revuelto",
-    tag: "V12 Statement",
+    id: "car-2",
+    name: "Car 2",
+    tag: "Performance Flagship",
     pricePerDay: 3890,
     deposit: 6500,
     insurancePerDay: 280,
@@ -34,23 +34,23 @@ window.RYD_CARS = [
     horsepower: 1001,
     transmission: "8-speed dual-clutch",
     topSpeed: "217 mph",
-    accent: "Unmistakable presence",
+    accent: "Cinematic presence",
     image:
       "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80",
     description:
-      "Raw V12 emotion meets next-generation control in a halo car designed for milestone weekends, proposals, campaigns, and ultra-luxury escapes.",
+      "Built for headline moments, Car 2 delivers a dramatic silhouette and a high-energy presence for standout reservations.",
     features: [
-      "Roadside white-glove support",
       "Priority hotel and valet coordination",
-      "Ceramic brake package",
-      "Exclusive night-delivery option"
+      "Roadside concierge support",
+      "Evening delivery presentation option",
+      "Best suited for campaigns, celebrations, and destination stays"
     ],
     unavailableDates: ["2026-04-14", "2026-04-15", "2026-04-22", "2026-04-30"]
   },
   {
-    id: "rolls-cullinan",
-    name: "Rolls-Royce Cullinan Black Badge",
-    tag: "Luxury SUV",
+    id: "car-3",
+    name: "Car 3",
+    tag: "Executive SUV",
     pricePerDay: 2990,
     deposit: 4500,
     insurancePerDay: 190,
@@ -58,23 +58,23 @@ window.RYD_CARS = [
     horsepower: 592,
     transmission: "8-speed automatic",
     topSpeed: "155 mph",
-    accent: "Chauffeur-grade opulence",
+    accent: "Private lounge comfort",
     image:
       "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=80",
     description:
-      "A commanding Black Badge experience for executives, VIP transport, and elevated family travel that demands discretion, comfort, and impact.",
+      "A polished luxury SUV for airport transfers, executive travel, and reservations that prioritize comfort with presence.",
     features: [
-      "Rear executive seating suite",
+      "Executive rear-seat comfort",
       "Airport and private-terminal delivery",
-      "Umbrella, fragrance, and chilled refreshment kit",
-      "Ideal for premium event transport"
+      "Refreshment and presentation kit",
+      "Well suited for family luxury and VIP guest movement"
     ],
     unavailableDates: ["2026-04-20", "2026-04-21", "2026-04-27"]
   },
   {
-    id: "mclaren-750s",
-    name: "McLaren 750S Spider",
-    tag: "Open-Air Performance",
+    id: "car-4",
+    name: "Car 4",
+    tag: "Open-Air Grand Tourer",
     pricePerDay: 3190,
     deposit: 5200,
     insurancePerDay: 225,
@@ -82,16 +82,16 @@ window.RYD_CARS = [
     horsepower: 740,
     transmission: "7-speed seamless shift",
     topSpeed: "206 mph",
-    accent: "Open-sky exhilaration",
+    accent: "Coastal-weekend energy",
     image:
       "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1400&q=80",
     description:
-      "For coastal drives and destination weekends, the 750S Spider turns every route into a cinematic experience without sacrificing precision.",
+      "An open-air reservation option designed for scenic drives, resort arrivals, and destination weekends with a lighter mood.",
     features: [
-      "Retractable hardtop in 11 seconds",
-      "Performance data recorder",
-      "Luxury luggage support and route planning",
-      "Sunset delivery presentation"
+      "Open-air roof configuration",
+      "Route-planning and luggage support",
+      "Concierge delivery timed for resort check-in or sunset departures",
+      "A natural fit for celebratory weekend itineraries"
     ],
     unavailableDates: ["2026-04-16", "2026-04-23", "2026-04-24"]
   }

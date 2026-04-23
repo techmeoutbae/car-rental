@@ -1,11 +1,6 @@
-const BOOKING_CONFIG = {
-  stripePaymentLinks: {
-    "ferrari-sf90": "https://buy.stripe.com/test_6oE5kCfakeFerrari",
-    "lamborghini-revuelto": "https://buy.stripe.com/test_bIY2aofakeLambo",
-    "rolls-cullinan": "https://buy.stripe.com/test_dR6fZ4fakeRolls",
-    "mclaren-750s": "https://buy.stripe.com/test_28o3esfakeMclaren"
-  }
-};
+const BOOKING_MONTH_START = "2026-04-01";
+const BOOKING_MONTH_DAYS = 30;
+const BOOKING_OPEN_FROM = "2026-04-12";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-US", {
@@ -16,12 +11,280 @@ const formatCurrency = (value) =>
 
 const parseDate = (value) => new Date(`${value}T00:00:00`);
 
+const formatIsoDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (value, amount) => {
+  const date = value instanceof Date ? new Date(value.getTime()) : parseDate(value);
+  date.setDate(date.getDate() + amount);
+  return date;
+};
+
 const dayDiff = (start, end) => {
   const ms = parseDate(end) - parseDate(start);
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 };
 
+const formatDateLabel = (value) =>
+  parseDate(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+
 const getCarById = (id) => window.RYD_CARS.find((car) => car.id === id);
+
+const getCalendarMonthLabel = () =>
+  parseDate(BOOKING_MONTH_START).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric"
+  });
+
+const getCalendarLegendMarkup = () => `
+  <div class="calendar-legend" aria-hidden="true">
+    <span><span class="calendar-swatch available"></span>Available</span>
+    <span><span class="calendar-swatch selected"></span>Selected</span>
+    <span><span class="calendar-swatch booked"></span>Reserved</span>
+    <span><span class="calendar-swatch closed"></span>Unavailable</span>
+  </div>`;
+
+const setFormStatus = (form, message, type) => {
+  if (window.RYD_setFormStatus) {
+    window.RYD_setFormStatus(form, message, type);
+    return;
+  }
+
+  const status = form.querySelector("[data-form-status]");
+  if (!status) {
+    alert(message);
+    return;
+  }
+
+  status.textContent = message;
+  status.className = `form-status is-visible is-${type}`;
+};
+
+const clearFormStatus = (form) => {
+  if (window.RYD_clearFormStatus) {
+    window.RYD_clearFormStatus(form);
+    return;
+  }
+
+  const status = form.querySelector("[data-form-status]");
+  if (!status) {
+    return;
+  }
+
+  status.textContent = "";
+  status.className = "form-status";
+};
+
+const isSelectableDate = (car, iso) => {
+  if (!car) {
+    return false;
+  }
+
+  return iso >= BOOKING_OPEN_FROM && !car.unavailableDates.includes(iso);
+};
+
+const getRangeDates = (start, end) => {
+  const dates = [];
+  let current = parseDate(start);
+  const endDate = parseDate(end);
+
+  while (current <= endDate) {
+    dates.push(formatIsoDate(current));
+    current = addDays(current, 1);
+  }
+
+  return dates;
+};
+
+const isRangeAvailable = (car, start, end) => {
+  if (!car || !start || !end || dayDiff(start, end) <= 0) {
+    return false;
+  }
+
+  return getRangeDates(start, end).every((iso) => isSelectableDate(car, iso));
+};
+
+const getCalendarFeedback = (car, start, end) => {
+  if (!car) {
+    return "Select a vehicle to load the booking calendar.";
+  }
+
+  if (!start) {
+    return `Choose a pickup date for ${car.name}, then select a return date. Reserved dates are blocked automatically.`;
+  }
+
+  if (!end) {
+    return `Pickup date selected for ${formatDateLabel(start)}. Choose a return date after your pickup date.`;
+  }
+
+  return `${car.name} selected from ${formatDateLabel(start)} to ${formatDateLabel(end)} for ${dayDiff(start, end)} day(s).`;
+};
+
+const updateSummary = (form) => {
+  if (!form) {
+    return;
+  }
+
+  const car = getCarById(form.car.value);
+  if (!car) {
+    return;
+  }
+
+  const pickup = form.pickupDate.value;
+  const returnDate = form.returnDate.value;
+  const rangeValid = isRangeAvailable(car, pickup, returnDate);
+  const rentalDays = rangeValid ? dayDiff(pickup, returnDate) : 0;
+  const insuranceEnabled = form.insurance.value === "add";
+  const subtotal = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
+  const insuranceTotal = rentalDays > 0 && insuranceEnabled ? rentalDays * car.insurancePerDay : 0;
+  const total = subtotal + insuranceTotal + car.deposit;
+
+  document.querySelector("[data-summary-car]").textContent = car.name;
+  document.querySelector("[data-summary-rate]").textContent = formatCurrency(car.pricePerDay);
+  document.querySelector("[data-summary-nights]").textContent =
+    rentalDays > 0 ? `${rentalDays} day(s)` : "Select dates";
+  document.querySelector("[data-summary-deposit]").textContent = formatCurrency(car.deposit);
+  document.querySelector("[data-summary-insurance]").textContent = rentalDays > 0
+    ? insuranceEnabled
+      ? formatCurrency(insuranceTotal)
+      : "Using own coverage"
+    : "Pending dates";
+  document.querySelector("[data-summary-total]").textContent =
+    rentalDays > 0 ? formatCurrency(total) : "Complete dates";
+};
+
+const setSelectedDates = (form, start, end) => {
+  form.pickupDate.value = start || "";
+  form.returnDate.value = end || "";
+  form.returnDate.min = start || BOOKING_OPEN_FROM;
+};
+
+const renderBookingCalendar = (car, form) => {
+  const calendar = document.querySelector("[data-booking-calendar]");
+  const header = document.querySelector("[data-booking-calendar-month]");
+  const feedback = document.querySelector("[data-calendar-feedback]");
+
+  if (!calendar || !form) {
+    return;
+  }
+
+  if (header) {
+    header.textContent = getCalendarMonthLabel();
+  }
+
+  const selectedStart = form.pickupDate.value;
+  const selectedEnd = form.returnDate.value;
+  const monthStart = parseDate(BOOKING_MONTH_START);
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const spacerCount = monthStart.getDay();
+
+  const headers = weekDays.map((day) => `<div class="calendar-head">${day}</div>`).join("");
+  const spacers = Array.from({ length: spacerCount }, () => '<div class="calendar-day calendar-spacer"></div>').join("");
+  const days = Array.from({ length: BOOKING_MONTH_DAYS }, (_, index) => {
+    const date = addDays(monthStart, index);
+    const iso = formatIsoDate(date);
+    const isReserved = car.unavailableDates.includes(iso);
+    const isClosed = iso < BOOKING_OPEN_FROM;
+    const isAvailable = !isReserved && !isClosed;
+    const isSelectedStart = selectedStart === iso;
+    const isSelectedEnd = selectedEnd === iso;
+    const isInRange = Boolean(selectedStart && selectedEnd && iso > selectedStart && iso < selectedEnd);
+    const classes = ["calendar-day"];
+
+    if (isReserved) {
+      classes.push("booked");
+    } else if (isClosed) {
+      classes.push("closed");
+    } else {
+      classes.push("available", "is-selectable");
+    }
+
+    if (isInRange) {
+      classes.push("in-range");
+    }
+
+    if (isSelectedStart) {
+      classes.push("selected", "range-start");
+    }
+
+    if (isSelectedEnd) {
+      classes.push("selected", "range-end");
+    }
+
+    let label = isReserved ? "Reserved" : isClosed ? "Unavailable" : "Open";
+    if (isSelectedStart && !selectedEnd) {
+      label = "Pickup";
+    } else if (isSelectedStart) {
+      label = "Pickup";
+    } else if (isSelectedEnd) {
+      label = "Return";
+    } else if (isInRange) {
+      label = "Selected";
+    }
+
+    return `
+      <button
+        class="${classes.join(" ")}"
+        type="button"
+        data-calendar-date="${iso}"
+        aria-pressed="${isSelectedStart || isSelectedEnd ? "true" : "false"}"
+        ${isAvailable ? "" : "disabled"}
+      >
+        <strong>${date.getDate()}</strong><br>
+        <span>${label}</span>
+      </button>`;
+  }).join("");
+
+  calendar.innerHTML = headers + spacers + days;
+
+  if (feedback) {
+    feedback.textContent = getCalendarFeedback(car, selectedStart, selectedEnd);
+  }
+
+  calendar.querySelectorAll("[data-calendar-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const chosenDate = button.dataset.calendarDate;
+      const currentStart = form.pickupDate.value;
+      const currentEnd = form.returnDate.value;
+
+      clearFormStatus(form);
+
+      if (!currentStart || currentEnd) {
+        setSelectedDates(form, chosenDate, "");
+        renderBookingCalendar(car, form);
+        updateSummary(form);
+        return;
+      }
+
+      if (chosenDate <= currentStart) {
+        setSelectedDates(form, chosenDate, "");
+        renderBookingCalendar(car, form);
+        updateSummary(form);
+        return;
+      }
+
+      if (!isRangeAvailable(car, currentStart, chosenDate)) {
+        setSelectedDates(form, chosenDate, "");
+        renderBookingCalendar(car, form);
+        updateSummary(form);
+        setFormStatus(form, "That date range crosses unavailable days. Select a new pickup date and try again.", "error");
+        return;
+      }
+
+      setSelectedDates(form, currentStart, chosenDate);
+      renderBookingCalendar(car, form);
+      updateSummary(form);
+    });
+  });
+};
 
 const renderCarCards = () => {
   const grid = document.querySelector("[data-car-grid]");
@@ -47,7 +310,7 @@ const renderCarCards = () => {
               <strong>${formatCurrency(car.pricePerDay)}</strong>
               <p>per day</p>
             </div>
-            <button class="button button-secondary" type="button">View Details</button>
+            <button class="button button-secondary" type="button">View Availability</button>
           </div>
         </div>
       </article>`
@@ -63,41 +326,6 @@ const renderCarCards = () => {
   if (window.RYD_initReveal) {
     window.RYD_initReveal();
   }
-};
-
-const renderCalendar = (car) => {
-  const calendar = document.querySelector("[data-calendar]");
-  if (!calendar || !car) {
-    return;
-  }
-
-  const today = new Date("2026-04-01T00:00:00");
-  const month = today.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric"
-  });
-
-  const header = document.querySelector("[data-calendar-month]");
-  if (header) {
-    header.textContent = month;
-  }
-
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const days = Array.from({ length: 30 }, (_, index) => {
-    const date = new Date("2026-04-01T00:00:00");
-    date.setDate(index + 1);
-    const iso = date.toISOString().slice(0, 10);
-    const isBooked = car.unavailableDates.includes(iso);
-
-    return `<div class="calendar-day ${isBooked ? "booked" : "available"}">
-      <strong>${index + 1}</strong><br>
-      <span>${isBooked ? "Booked" : "Open"}</span>
-    </div>`;
-  }).join("");
-
-  calendar.innerHTML = weekDays
-    .map((day) => `<div class="calendar-head">${day}</div>`)
-    .join("") + days;
 };
 
 const populateDetailPage = () => {
@@ -136,10 +364,10 @@ const populateDetailPage = () => {
             </div>
           </div>
           <aside class="detail-sidebar reveal">
-            <p class="eyebrow">Luxury Booking</p>
-            <h3>Reserve This Car</h3>
-            <p>Secure your date, review pricing, then continue to Stripe for your payment authorization.</p>
-            <a class="button button-primary" href="#booking-form">Book ${car.name}</a>
+            <p class="eyebrow">Reservation Overview</p>
+            <h3>Reserve ${car.name}</h3>
+            <p>Choose your dates directly from the calendar, review pricing, and send the request through for concierge confirmation.</p>
+            <a class="button button-primary" href="#booking-form">Review Reservation Details</a>
           </aside>
         </div>
       </div>
@@ -148,11 +376,13 @@ const populateDetailPage = () => {
       <div class="container split-layout">
         <div class="calendar-card reveal">
           <div class="section-header">
-            <p class="eyebrow">Availability Calendar</p>
-            <h2 data-calendar-month>April 2026</h2>
-            <p>Green dates are currently available for instant reservation. Red dates are already secured.</p>
+            <p class="eyebrow">Availability & Booking Calendar</p>
+            <h2 data-booking-calendar-month>${getCalendarMonthLabel()}</h2>
+            <p>Select your pickup date, then your return date. Reserved dates are blocked from the booking flow automatically.</p>
           </div>
-          <div class="calendar" data-calendar></div>
+          ${getCalendarLegendMarkup()}
+          <div class="calendar" data-booking-calendar></div>
+          <p class="calendar-feedback" data-calendar-feedback role="status" aria-live="polite"></p>
         </div>
         <aside class="detail-sidebar reveal">
           <p class="eyebrow">Vehicle Details</p>
@@ -172,46 +402,10 @@ const populateDetailPage = () => {
     </section>
   `;
 
-  const carSelect = document.querySelector("#car-select");
-  if (carSelect) {
-    carSelect.value = car.id;
-  }
-
-  renderCalendar(car);
-
   if (window.RYD_initReveal) {
     window.RYD_initReveal();
   }
 };
-
-const updateSummary = () => {
-  const form = document.querySelector("[data-booking-form]");
-  if (!form) {
-    return;
-  }
-
-  const car = getCarById(form.car.value);
-  if (!car) {
-    return;
-  }
-
-  const pickup = form.pickupDate.value;
-  const returnDate = form.returnDate.value;
-  const nights = pickup && returnDate ? dayDiff(pickup, returnDate) : 0;
-  const insuranceEnabled = form.insurance.value === "add";
-  const subtotal = nights > 0 ? nights * car.pricePerDay : 0;
-  const insuranceTotal = nights > 0 && insuranceEnabled ? nights * car.insurancePerDay : 0;
-  const total = subtotal + insuranceTotal + car.deposit;
-
-  document.querySelector("[data-summary-car]").textContent = car.name;
-  document.querySelector("[data-summary-rate]").textContent = formatCurrency(car.pricePerDay);
-  document.querySelector("[data-summary-nights]").textContent = nights > 0 ? `${nights} day(s)` : "Select dates";
-  document.querySelector("[data-summary-deposit]").textContent = formatCurrency(car.deposit);
-  document.querySelector("[data-summary-insurance]").textContent =
-    insuranceEnabled ? formatCurrency(insuranceTotal) : "Using own coverage";
-  document.querySelector("[data-summary-total]").textContent =
-    nights > 0 ? formatCurrency(total) : "Complete dates";
-}
 
 const initBookingForm = () => {
   const form = document.querySelector("[data-booking-form]");
@@ -219,27 +413,43 @@ const initBookingForm = () => {
     return;
   }
 
-  const now = new Date("2026-04-12T00:00:00");
-  const minDate = now.toISOString().slice(0, 10);
-  form.pickupDate.min = minDate;
-  form.returnDate.min = minDate;
+  form.pickupDate.min = BOOKING_OPEN_FROM;
+  form.returnDate.min = BOOKING_OPEN_FROM;
+  form.pickupDate.readOnly = true;
+  form.returnDate.readOnly = true;
 
-  window.RYD_CARS.forEach((car) => {
-    const option = document.createElement("option");
-    option.value = car.id;
-    option.textContent = `${car.name} - ${formatCurrency(car.pricePerDay)}/day`;
-    form.car.append(option);
-  });
+  if (!form.car.options.length) {
+    window.RYD_CARS.forEach((car) => {
+      const option = document.createElement("option");
+      option.value = car.id;
+      option.textContent = `${car.name} - ${formatCurrency(car.pricePerDay)}/day`;
+      form.car.append(option);
+    });
+  }
 
   const params = new URLSearchParams(window.location.search);
   const initialId = params.get("car") || window.RYD_CARS[0].id;
-  form.car.value = initialId;
+  form.car.value = getCarById(initialId) ? initialId : window.RYD_CARS[0].id;
 
-  form.addEventListener("change", () => {
-    if (form.pickupDate.value) {
-      form.returnDate.min = form.pickupDate.value;
+  setSelectedDates(form, "", "");
+  renderBookingCalendar(getCarById(form.car.value), form);
+
+  form.addEventListener("change", (event) => {
+    clearFormStatus(form);
+
+    if (event.target === form.car) {
+      const detailRoot = document.querySelector("[data-car-detail]");
+
+      if (detailRoot) {
+        window.location.href = `car.html?car=${form.car.value}#booking-form`;
+        return;
+      }
+
+      setSelectedDates(form, "", "");
+      renderBookingCalendar(getCarById(form.car.value), form);
     }
-    updateSummary();
+
+    updateSummary(form);
   });
 
   form.addEventListener("submit", (event) => {
@@ -250,25 +460,25 @@ const initBookingForm = () => {
     const returnDate = form.returnDate.value;
     const consent = form.querySelector('input[name="consent"]');
     const age = form.querySelector('input[name="ageConfirm"]');
-    const nights = pickup && returnDate ? dayDiff(pickup, returnDate) : 0;
 
-    if (!car || nights <= 0 || !consent.checked || !age.checked) {
-      alert("Please complete your dates and accept the legal booking disclosures before continuing.");
+    if (!car || !isRangeAvailable(car, pickup, returnDate)) {
+      setFormStatus(form, "Select an available pickup and return date directly from the calendar before continuing.", "error");
       return;
     }
 
-    const paymentLink = BOOKING_CONFIG.stripePaymentLinks[car.id];
-    if (!paymentLink || paymentLink.includes("fake")) {
-      alert(
-        "Stripe live links are not configured yet. Replace the placeholder links in assets/js/booking.js with your Stripe Payment Links or Checkout endpoint before going live."
-      );
+    if (!consent.checked || !age.checked) {
+      setFormStatus(form, "Please confirm the required driver eligibility and booking disclosures before submitting your request.", "error");
       return;
     }
 
-    window.location.href = paymentLink;
+    setFormStatus(
+      form,
+      `${car.name} has been prepared for ${formatDateLabel(pickup)} to ${formatDateLabel(returnDate)}. A concierge specialist will follow up to confirm coverage, delivery, and deposit authorization.`,
+      "success"
+    );
   });
 
-  updateSummary();
+  updateSummary(form);
 };
 
 document.addEventListener("DOMContentLoaded", () => {
